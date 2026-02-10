@@ -69,7 +69,7 @@ Create a virtual environment and install dependencies:
 python -m venv .venv
 .venv\Scripts\activate
 pip install -U pip
-pip install -r requirements.txt
+pip install -r requirements-lock.txt
 ```
 
 **Linux/macOS:**
@@ -77,7 +77,7 @@ pip install -r requirements.txt
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
-pip install -r requirements.txt
+pip install -r requirements-lock.txt
 ```
 
 ### Verify TensorFlow backend
@@ -87,7 +87,7 @@ python -c "import tensorflow as tf; print('TF', tf.__version__); print('GPUs', t
 
 If you use DirectML, you should see GPU devices listed as `DML`.
 
-> If you ever see NumPy 2.x incompatibility errors with TF 2.10, ensure `numpy<2` is installed (pinned in `requirements.txt`).
+> If you ever see NumPy 2.x incompatibility errors with TF 2.10, ensure `numpy<2` is installed (pinned in `requirements-lock.txt`).
 
 ---
 
