@@ -8,6 +8,7 @@ from bcg_signal_classifier.pipeline import main
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Suppress INFO + WARNING logs
 
+
 def ensure_data_dirs():
     """Create data and annotations directories if they don't exist."""
     project_dir = Path(".")
@@ -39,8 +40,6 @@ def ensure_data_dirs():
 
     return len(csv_files) > 0 and len(ann_files) > 0
 
-
-from bcg_signal_classifier.pipeline import main
 
 if __name__ == "__main__":
     ready = ensure_data_dirs()
