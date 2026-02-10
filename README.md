@@ -1,22 +1,31 @@
 # Transformer-Based Ballistocardiogram Signal Classification with Explainable AI
 **BCG vs Non-BCG** classification pipeline with **nested patient-wise cross-validation**, **train-only capped augmentation**, **probability calibration**, and **Integrated Gradients** explanations.
 
-Main script: `bcg_cv_pipeline_nested_calibrated.py`
+Main entry point: `main.py`
 
 ---
 
-## 1) Dataset layout (required)
-
-Place the script next to two folders:
+## 1) Project structure
 
 ```
-D:\Ibrahim\bcgProject\
-├─ bcg_cv_pipeline_nested_calibrated.py
-├─ data\
+bcg-signal-classifier/
+├─ main.py                        # Entry point
+├─ bcg_signal_classifier/         # Python package
+│  ├─ __init__.py
+│  ├─ config.py                   # Configuration dataclass
+│  ├─ preprocessing.py            # Signal filtering & preprocessing
+│  ├─ augmentation.py             # Data augmentation
+│  ├─ models.py                   # CNN & Transformer models
+│  ├─ calibration.py              # Probability calibration
+│  ├─ xai.py                      # Integrated Gradients XAI
+│  ├─ visualization.py            # Plotting utilities
+│  ├─ dataset.py                  # Data loading
+│  └─ pipeline.py                 # Main pipeline orchestration
+├─ data/                          # Patient CSV files (not in repo)
 │  ├─ 0001.csv
 │  ├─ 0002.csv
 │  └─ ...
-└─ annotations\
+└─ annotations/                   # Annotation files (not in repo)
    ├─ patient__0001__annotations.txt
    ├─ patient__0002__annotations.txt
    └─ ...
@@ -51,15 +60,23 @@ chunk_id	categories	start_time	end_time
 
 ---
 
-## 2) Installation (Windows 10/11, non-admin, Python 3.9)
+## 2) Installation (Python 3.9+)
 
 Create a virtual environment and install dependencies:
 
+**Windows:**
 ```bat
-cd /d D:\Ibrahim\bcgProject
-py -3.9 -m venv .venv
+python -m venv .venv
 .venv\Scripts\activate
-python -m pip install -U pip
+pip install -U pip
+pip install -r requirements.txt
+```
+
+**Linux/macOS:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
 pip install -r requirements.txt
 ```
 
@@ -77,28 +94,28 @@ If you use DirectML, you should see GPU devices listed as `DML`.
 ## 3) Running the pipeline
 
 Transformer:
-```bat
-python bcg_cv_pipeline_nested_calibrated.py --model transformer
+```bash
+python main.py --model transformer
 ```
 
 CNN:
-```bat
-python bcg_cv_pipeline_nested_calibrated.py --model cnn
+```bash
+python main.py --model cnn
 ```
 
 Custom output directory:
-```bat
-python bcg_cv_pipeline_nested_calibrated.py --out_dir D:\Ibrahim\bcgProject\cv_output_nested --model transformer
+```bash
+python main.py --out_dir ./cv_output_nested --model transformer
 ```
 
 Disable explainability (faster):
-```bat
-python bcg_cv_pipeline_nested_calibrated.py --model transformer --disable_xai
+```bash
+python main.py --model transformer --disable_xai
 ```
 
 See all parameters:
-```bat
-python bcg_cv_pipeline_nested_calibrated.py --help
+```bash
+python main.py --help
 ```
 
 ---
@@ -179,7 +196,7 @@ Per fold:
 
 ## 5) Outputs
 
-`--out_dir` (default `D:\Ibrahim\bcgProject\cv_output_nested`) will contain:
+`--out_dir` (default `./cv_output_nested`) will contain:
 
 - `counts_before_overall.png`
 - `counts_after_overall_<model>.png`
@@ -196,8 +213,8 @@ Per fold:
 
 | Flag | Default |
 |---|---:|
-| `--project_dir` | `D:\Ibrahim\bcgProject` |
-| `--out_dir` | `D:\Ibrahim\bcgProject\cv_output_nested` |
+| `--project_dir` | `.` |
+| `--out_dir` | `./cv_output_nested` |
 | `--model` | `transformer` (`cnn` or `transformer`) |
 | `--outer_splits` | `10` |
 | `--inner_splits` | `3` |
@@ -228,6 +245,6 @@ set TF_ENABLE_ONEDNN_OPTS=0
 
 ### Speed
 Integrated Gradients adds extra gradient passes; disable XAI for faster runs:
-```bat
-python bcg_cv_pipeline_nested_calibrated.py --model transformer --disable_xai
+```bash
+python main.py --model transformer --disable_xai
 ```

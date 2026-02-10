@@ -1,0 +1,21 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - run: pip install flake8
+      - run: flake8 . --max-line-length=130 --count --statistics --exclude=.venv,venv,env,__pycache__
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - run: pip install numpy"<2" pandas scipy scikit-learn matplotlib tensorflow-cpu==2.10.0 pytest
+      - run: pytest tests/ -v
