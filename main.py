@@ -3,9 +3,10 @@
 """Entry point for BCG signal classification pipeline."""
 
 import os
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Suppress INFO + WARNING logs
-
 from pathlib import Path
+from bcg_signal_classifier.pipeline import main
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Suppress INFO + WARNING logs
 
 def ensure_data_dirs():
     """Create data and annotations directories if they don't exist."""
