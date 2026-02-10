@@ -2,7 +2,6 @@
 """Tests for preprocessing module."""
 
 import numpy as np
-import pytest
 
 from bcg_signal_classifier.preprocessing import zscore, resample_1d
 

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Probability calibration functions and classes for BCG signal classification."""
 
-import logging
 from pathlib import Path
 from typing import Optional, Union
 

@@ -2,7 +2,6 @@
 """Tests for calibration module."""
 
 import numpy as np
-import pytest
 
 from bcg_signal_classifier.calibration import (
     softmax_np,
@@ -58,14 +57,14 @@ def test_temperature_scaler_fit_predict():
     """Test TemperatureScaler basic fit and predict."""
     logits = np.random.randn(50, 2).astype(np.float32)
     y_true = np.random.randint(0, 2, size=50)
-    
+
     scaler = TemperatureScaler(opt_steps=10, opt_lr=0.05)
     scaler.fit(logits, y_true)
-    
+
     # Check that temperature was fitted
     assert hasattr(scaler, 'temperature_')
     assert 0.05 <= scaler.temperature_ <= 50.0
-    
+
     # Check that predict_proba works
     probs = scaler.predict_proba(logits)
     assert probs.shape == (50, 2)
@@ -76,10 +75,10 @@ def test_platt_scaler_fit_predict():
     """Test PlattScalerBinary basic fit and predict."""
     logits = np.random.randn(50, 2).astype(np.float32)
     y_true = np.random.randint(0, 2, size=50)
-    
+
     scaler = PlattScalerBinary()
     scaler.fit(logits, y_true)
-    
+
     # Check that predict_proba works
     probs = scaler.predict_proba(logits)
     assert probs.shape == (50, 2)

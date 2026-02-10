@@ -22,27 +22,25 @@ Notes:
 
 from __future__ import annotations
 
-import os
-
-os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
-
 import argparse
 import itertools
 import logging
+import os
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 import matplotlib
-
-matplotlib.use("Agg")
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, log_loss, precision_score, recall_score
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 
-from bcg_signal_classifier.augmentation import augment_capped_option_b
-from bcg_signal_classifier.calibration import (
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+matplotlib.use("Agg")
+
+from bcg_signal_classifier.augmentation import augment_capped_option_b  # noqa: E402
+from bcg_signal_classifier.calibration import (  # noqa: E402
     apply_calibrator,
     brier_score_binary,
     expected_calibration_error_binary,
@@ -50,11 +48,11 @@ from bcg_signal_classifier.calibration import (
     reliability_plot,
     softmax_np,
 )
-from bcg_signal_classifier.config import Config
-from bcg_signal_classifier.dataset import build_dataset
-from bcg_signal_classifier.models import build_model
-from bcg_signal_classifier.visualization import plot_counts
-from bcg_signal_classifier.xai import integrated_gradients_1d, plot_ig_overlay
+from bcg_signal_classifier.config import Config  # noqa: E402
+from bcg_signal_classifier.dataset import build_dataset  # noqa: E402
+from bcg_signal_classifier.models import build_model  # noqa: E402
+from bcg_signal_classifier.visualization import plot_counts  # noqa: E402
+from bcg_signal_classifier.xai import integrated_gradients_1d, plot_ig_overlay  # noqa: E402
 
 
 def setup_logging() -> None:

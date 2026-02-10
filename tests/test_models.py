@@ -18,11 +18,11 @@ def test_build_cnn_returns_model():
 def test_build_cnn_correct_shapes():
     """Test that CNN model has correct input/output shapes."""
     model = build_cnn(input_len=50, lr=1e-4, dropout=0.2)
-    
+
     # Test forward pass
     X = np.random.randn(10, 50, 1).astype(np.float32)
     logits = model.predict(X, verbose=0)
-    
+
     assert logits.shape == (10, 2), "Output should be (batch_size, 2) logits"
 
 
@@ -36,11 +36,11 @@ def test_build_transformer_returns_model():
 def test_build_transformer_correct_shapes():
     """Test that Transformer model has correct input/output shapes."""
     model = build_transformer(input_len=50, lr=1e-4, dropout=0.2)
-    
+
     # Test forward pass
     X = np.random.randn(10, 50, 1).astype(np.float32)
     logits = model.predict(X, verbose=0)
-    
+
     assert logits.shape == (10, 2), "Output should be (batch_size, 2) logits"
 
 
