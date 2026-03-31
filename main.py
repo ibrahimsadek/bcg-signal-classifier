@@ -7,7 +7,7 @@ from pathlib import Path
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")  # Suppress INFO + WARNING logs
 
-from bcg_signal_classifier.pipeline import main
+from bcg_signal_classifier.pipeline import main  # noqa: E402
 
 
 def ensure_data_dirs():
