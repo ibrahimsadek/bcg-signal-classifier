@@ -4,9 +4,10 @@
 
 import os
 from pathlib import Path
-from bcg_signal_classifier.pipeline import main
 
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Suppress INFO + WARNING logs
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")  # Suppress INFO + WARNING logs
+
+from bcg_signal_classifier.pipeline import main
 
 
 def ensure_data_dirs():

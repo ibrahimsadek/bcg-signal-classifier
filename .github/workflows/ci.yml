@@ -8,7 +8,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.9"
-      - run: pip install flake8
+      - run: python -m pip install flake8
       - run: flake8 . --max-line-length=130 --count --statistics --exclude=.venv,venv,env,__pycache__
   test:
     runs-on: ubuntu-latest
@@ -17,5 +17,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.9"
-      - run: pip install numpy"<2" pandas scipy scikit-learn matplotlib tensorflow-cpu==2.10.0 pytest
+      - run: python -m pip install 'numpy<2' pandas scipy scikit-learn matplotlib tensorflow-cpu==2.10.0 pytest
       - run: pytest tests/ -v
