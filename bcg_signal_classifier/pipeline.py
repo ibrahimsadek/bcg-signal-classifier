@@ -51,7 +51,12 @@ from bcg_signal_classifier.calibration import (  # noqa: E402
 from bcg_signal_classifier.config import Config  # noqa: E402
 from bcg_signal_classifier.dataset import build_dataset  # noqa: E402
 from bcg_signal_classifier.models import build_model  # noqa: E402
-from bcg_signal_classifier.visualization import plot_counts  # noqa: E402
+from bcg_signal_classifier.visualization import (  # noqa: E402
+    plot_confusion_matrix_binary,
+    plot_counts,
+    plot_precision_recall_curve_binary,
+    plot_roc_curve_binary,
+)
 from bcg_signal_classifier.xai import integrated_gradients_1d, plot_ig_overlay  # noqa: E402
 
 
@@ -437,6 +442,25 @@ def main() -> None:
         # Reliability plots (probability quality)
         reliability_plot(y_test, p_uncal, fold_dir / "reliability_uncal.png")
         reliability_plot(y_test, p_cal, fold_dir / "reliability_cal.png")
+
+        # Per-fold diagnostic plots
+        plot_roc_curve_binary(
+            y_test,
+            p_uncal,
+            fold_dir / "roc_curve",
+            p_cal=None if calibrator is None else p_cal,
+        )
+        plot_precision_recall_curve_binary(
+            y_test,
+            p_uncal,
+            fold_dir / "precision_recall_curve",
+            p_cal=None if calibrator is None else p_cal,
+        )
+        plot_confusion_matrix_binary(
+            y_test,
+            y_pred,
+            fold_dir / "confusion_matrix",
+        )
 
         # Optional IG on held-out test samples only
         if not cfg.disable_xai and X_test.shape[0] > 0:
