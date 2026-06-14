@@ -1,8 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Entry point for BCG signal classification pipeline."""
+"""Entry point for BCG signal classification pipeline.
+
+Two modes:
+  Train + evaluate (default):
+      python main.py --model transformer
+  Apply a pretrained model to a new recording:
+      python main.py --predict --model_dir ./cv_output_nested/final_model \
+                     --input new_patient.csv --annotations new_patient_ann.txt
+"""
 
 import os
+import sys
 from pathlib import Path
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")  # Suppress INFO + WARNING logs
@@ -43,10 +52,15 @@ def ensure_data_dirs():
 
 
 if __name__ == "__main__":
-    ready = ensure_data_dirs()
-    if not ready:
-        print("\n[!] Please add your data files before running the pipeline.")
-        print("    Then re-run: python main.py --model cnn")
+    if "--predict" in sys.argv:
+        from bcg_signal_classifier.inference import predict_main  # noqa: E402
+
+        predict_main()
     else:
-        print("\nStarting pipeline...\n")
-        main()
+        ready = ensure_data_dirs()
+        if not ready:
+            print("\n[!] Please add your data files before running the pipeline.")
+            print("    Then re-run: python main.py --model cnn")
+        else:
+            print("\nStarting pipeline...\n")
+            main()

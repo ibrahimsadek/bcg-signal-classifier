@@ -91,9 +91,19 @@ If you use DirectML, you should see GPU devices listed as `DML`.
 
 ---
 
-## 3) Running the pipeline
+## 3) How to train models
 
-Transformer:
+Training runs **nested patient-wise cross-validation** for unbiased evaluation
+and, when finished, fits **one deployable model on all data** and saves it for
+later inference (see Section 4).
+
+**Step 1 — place your data.** Put patient recordings in `data/` and matching
+annotations in `annotations/` (formats in Section 1). Running `main.py` creates
+these folders automatically if missing and reports how many files it found.
+
+**Step 2 — run training.**
+
+Transformer (default):
 ```bash
 python main.py --model transformer
 ```
@@ -105,12 +115,12 @@ python main.py --model cnn
 
 Custom output directory:
 ```bash
-python main.py --out_dir ./cv_output_nested --model transformer
+python main.py --model transformer --out_dir ./cv_output_nested
 ```
 
-Disable explainability (faster):
+Faster smoke test (smaller grid, fewer epochs, no explainability):
 ```bash
-python main.py --model transformer --disable_xai
+python main.py --model cnn --inner_splits 3 --inner_epochs 6 --epochs 12 --hp_max_trials 6 --disable_xai
 ```
 
 See all parameters:
@@ -118,11 +128,65 @@ See all parameters:
 python main.py --help
 ```
 
+**Step 3 — collect results.** Cross-validation metrics, plots, and per-fold
+reports are written to `--out_dir` (Section 6). The trained deployable model is
+saved to `--out_dir/final_model/` unless you pass `--no_save_final_model`.
+
+> Nested CV is intentionally thorough and can be slow. Use the smoke-test command
+> above while validating your data, then run the full configuration.
+
 ---
 
-## 4) What the script does (validated against the code)
+## 4) How to apply pretrained models
 
-### 4.1 Signal preprocessing (per patient)
+After training, a ready-to-use model is stored in `final_model/` containing:
+
+- `model.keras` — the trained network (logits output),
+- `calibrator.json` — the fitted probability calibrator (temperature/Platt/none),
+- `inference_config.json` — the exact preprocessing settings and label map.
+
+Run inference on a **new recording** with `--predict`. Preprocessing
+(filtering, z-scoring, resampling) is reproduced automatically from
+`inference_config.json`, so you only provide the raw CSV.
+
+**Option A — classify annotated intervals** (same unit as training; `categories`
+optional — if present, accuracy is reported):
+```bash
+python main.py --predict \
+  --model_dir ./cv_output_nested/final_model \
+  --input ./new_patient.csv \
+  --annotations ./new_patient_annotations.txt \
+  --output ./predictions.csv
+```
+
+**Option B — annotation-free sliding window** (for deployment on raw streams):
+```bash
+python main.py --predict \
+  --model_dir ./cv_output_nested/final_model \
+  --input ./new_patient.csv \
+  --window_sec 1.0 --stride_sec 0.5 \
+  --output ./predictions.csv
+```
+
+The output CSV has one row per segment:
+
+| Column | Meaning |
+|---|---|
+| `chunk_id` | Interval id (annotation mode) or window index |
+| `start_time`, `end_time` | Segment bounds (ms epoch) |
+| `pred_index` | Predicted class index (`0`=NonBCG, `1`=BCG) |
+| `pred_label` | Human-readable predicted label |
+| `prob_BCG` | **Calibrated** probability of the BCG class |
+| `prob_BCG_uncal` | Uncalibrated (softmax) probability of the BCG class |
+| `true_label`, `correct` | Only if `categories` were supplied |
+
+You can also call inference directly: `python -m bcg_signal_classifier.inference --model_dir ... --input ...`.
+
+---
+
+## 5) What the script does (validated against the code)
+
+### 5.1 Signal preprocessing (per patient)
 Defaults are defined in the script `Config`:
 - Sampling rate: `fs = 50 Hz`
 - Chebyshev Type-I **high-pass**: order `2`, ripple `0.5 dB`, cutoff `2.5 Hz`
@@ -130,7 +194,7 @@ Defaults are defined in the script `Config`:
 - Zero-phase filtering: `scipy.signal.filtfilt`
 - Fixed resample length: `target_len = 50`
 
-### 4.2 Chunk extraction (uses **all** annotated intervals)
+### 5.2 Chunk extraction (uses **all** annotated intervals)
 For each annotation interval `[start_time, end_time]`:
 1. Find samples in the patient CSV where `epoch` lies within the interval
 2. Extract the filtered BCG segment
@@ -142,7 +206,7 @@ The script logs:
 - total chunks extracted
 - number of empty intervals (no samples in epoch range)
 
-### 4.3 Leakage prevention (patient-wise splitting everywhere)
+### 5.3 Leakage prevention (patient-wise splitting everywhere)
 The pipeline uses patient IDs as **groups** and enforces disjointness:
 
 - **Outer CV:** `GroupKFold(n_splits=outer_splits)` (default `10`)
@@ -151,7 +215,7 @@ The pipeline uses patient IDs as **groups** and enforces disjointness:
 
 The script asserts no patient overlap between the relevant splits.
 
-### 4.4 Hyperparameter selection (inner loop)
+### 5.4 Hyperparameter selection (inner loop)
 Grid search over:
 - learning rate candidates: `--lrs` (default `1e-4,3e-4`)
 - dropout candidates: `--dropouts` (default `0.1,0.2`)
@@ -161,7 +225,7 @@ Grid search over:
 The grid is truncated to `--hp_max_trials` (default `12`).
 Selection criterion: best mean inner-fold **F1**.
 
-### 4.5 Augmentation (Option B: capped, train-only)
+### 5.5 Augmentation (Option B: capped, train-only)
 Augmentation is applied **only** to the training subset:
 - In inner-CV: inner-train only
 - In outer-CV: train-fit only (never calibration or test)
@@ -172,7 +236,7 @@ Transforms (configured in `Config`):
 - circular roll/shift (`max_roll_frac=0.10` of `target_len`)
 - optional majority downsampling (`downsample_majority=True`)
 
-### 4.6 Calibration (post-hoc probability reliability)
+### 5.6 Calibration (post-hoc probability reliability)
 Choice via `--calibration`:
 - `temperature` (default): temperature scaling on logits (optimized with `calib_opt_steps=250`, `calib_opt_lr=0.05`)
 - `platt`: logistic regression on logit margin
@@ -185,7 +249,7 @@ Reported metrics **before and after** calibration:
 
 Reliability diagrams are saved per fold.
 
-### 4.7 Explainable AI (Integrated Gradients)
+### 5.7 Explainable AI (Integrated Gradients)
 Enabled unless `--disable_xai` is passed.
 Per fold:
 - sample up to `--xai_examples_per_fold` test examples (default `32`)
@@ -194,7 +258,7 @@ Per fold:
 
 ---
 
-## 5) Outputs
+## 6) Outputs
 
 `--out_dir` (default `./cv_output_nested`) will contain:
 
@@ -206,10 +270,13 @@ Per fold:
   - `reliability_uncal.png`, `reliability_cal.png`
   - `xai_ig/` (if enabled)
   - fold report files (metrics + patient split lists)
+- `final_model/` — the deployable model for inference (Section 4), unless
+  `--no_save_final_model` is set:
+  - `model.keras`, `calibrator.json`, `inference_config.json`
 
 ---
 
-## 6) Parameters (defaults from the script)
+## 7) Parameters (defaults from the script)
 
 | Flag | Default |
 |---|---:|
@@ -233,10 +300,23 @@ Per fold:
 | `--disable_xai` | (flag) |
 | `--xai_examples_per_fold` | `32` |
 | `--ig_steps` | `64` |
+| `--no_save_final_model` | (flag) skip saving the deployable model |
+| `--final_model_dir` | `<out_dir>/final_model` |
+
+**Inference flags (`--predict` mode, see Section 4):**
+
+| Flag | Default | Meaning |
+|---|---:|---|
+| `--model_dir` | (required) | Saved model directory (`final_model/`) |
+| `--input` | (required) | Patient CSV (`epoch`, `raw_data_sleepMat`) |
+| `--annotations` | `""` | Annotation file with intervals to classify |
+| `--window_sec` | `0.0` | Sliding-window length (s); annotation-free mode |
+| `--stride_sec` | `1.0` | Sliding-window hop (s) |
+| `--output` | `predictions.csv` | Output CSV path |
 
 ---
 
-## 7) Troubleshooting
+## 8) Troubleshooting
 
 ### Silence oneDNN informational message (if present)
 ```bat

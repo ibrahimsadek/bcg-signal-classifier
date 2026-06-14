@@ -26,8 +26,9 @@ import argparse
 import itertools
 import logging
 import os
+from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib
 import numpy as np
@@ -51,6 +52,7 @@ from bcg_signal_classifier.calibration import (  # noqa: E402
 from bcg_signal_classifier.config import Config  # noqa: E402
 from bcg_signal_classifier.dataset import build_dataset  # noqa: E402
 from bcg_signal_classifier.models import build_model  # noqa: E402
+from bcg_signal_classifier.persistence import save_artifacts  # noqa: E402
 from bcg_signal_classifier.visualization import (  # noqa: E402
     plot_confusion_matrix_binary,
     plot_counts,
@@ -249,6 +251,100 @@ def select_hyperparams_nested(
     return best_hp
 
 
+def select_modal_hyperparams(best_hps: List[Dict]) -> Dict:
+    """Pick the most frequently selected hyperparameter set across outer folds.
+
+    The nested CV chooses hyperparameters independently per outer fold. For the
+    final deployable model we reuse that work by taking the modal (most common)
+    configuration, breaking ties by first occurrence.
+
+    Args:
+        best_hps: Per-fold selected hyperparameter dictionaries.
+
+    Returns:
+        The modal hyperparameter dictionary.
+
+    Raises:
+        ValueError: If ``best_hps`` is empty.
+    """
+    if not best_hps:
+        raise ValueError("No hyperparameters collected from cross-validation.")
+    keys = ("lr", "dropout", "k", "noise_std")
+    counts = Counter(tuple(hp[k] for k in keys) for hp in best_hps)
+    modal = counts.most_common(1)[0][0]
+    return {k: v for k, v in zip(keys, modal)}
+
+
+def train_final_model(
+    model_name: str,
+    cfg: Config,
+    X_all: np.ndarray,
+    y_all: np.ndarray,
+    g_all: np.ndarray,
+    hp: Dict,
+    seed: int,
+) -> Tuple[tf.keras.Model, Optional[object]]:
+    """Train a single deployable model on ALL data with a calibrator.
+
+    Unlike the cross-validation loop (which trains throwaway per-fold models for
+    unbiased evaluation), this fits one model intended for deployment:
+    a patient-wise fit/calibration split is drawn from all patients,
+    train-only capped augmentation is applied to the fit split, the model is
+    trained, and a calibrator is fit on the held-out calibration split.
+
+    Args:
+        model_name: Model type ('cnn' or 'transformer').
+        cfg: Configuration object.
+        X_all: All features of shape (n_samples, target_len).
+        y_all: All labels of shape (n_samples,).
+        g_all: All patient groups of shape (n_samples,).
+        hp: Hyperparameters to use (e.g. from :func:`select_modal_hyperparams`).
+        seed: Random seed.
+
+    Returns:
+        Tuple ``(model, calibrator)`` where ``calibrator`` may be None.
+    """
+    gss = GroupShuffleSplit(n_splits=1, test_size=cfg.calib_frac, random_state=seed)
+    fit_rel, cal_rel = next(gss.split(np.zeros_like(y_all), y_all, groups=g_all))
+
+    fit_pat = set(g_all[fit_rel].tolist())
+    cal_pat = set(g_all[cal_rel].tolist())
+    if not fit_pat.isdisjoint(cal_pat):
+        raise RuntimeError("LEAKAGE in final-model calibration split")
+
+    X_fit, y_fit = X_all[fit_rel], y_all[fit_rel]
+    X_cal, y_cal = X_all[cal_rel], y_all[cal_rel]
+
+    X_fit_aug, y_fit_aug, _, _ = augment_capped_option_b(
+        X_fit,
+        y_fit,
+        seed=seed + 7,
+        target_len=cfg.target_len,
+        max_oversample_factor=hp["k"],
+        noise_std=hp["noise_std"],
+        scale_min=cfg.scale_min,
+        scale_max=cfg.scale_max,
+        max_roll_frac=cfg.max_roll_frac,
+        downsample_majority=cfg.downsample_majority,
+    )
+
+    tf.keras.backend.clear_session()
+    set_seeds(seed + 13)
+    model = build_model(model_name, cfg.target_len, lr=hp["lr"], dropout=hp["dropout"])
+    model.fit(X_fit_aug[..., None], y_fit_aug, epochs=cfg.epochs, batch_size=cfg.batch_size, verbose=0)
+
+    logits_cal = model.predict(X_cal[..., None], verbose=0)
+    calibrator = fit_calibrator(cfg, logits_cal, y_cal)
+
+    logging.info(
+        "Final model trained on ALL data | fit_patients=%d calib_patients=%d | hp=%s",
+        len(fit_pat),
+        len(cal_pat),
+        hp,
+    )
+    return model, calibrator
+
+
 def main() -> None:
     """Main pipeline orchestration function."""
     setup_logging()
@@ -278,6 +374,18 @@ def main() -> None:
     p.add_argument("--disable_xai", action="store_true")
     p.add_argument("--xai_examples_per_fold", type=int, default=32)
     p.add_argument("--ig_steps", type=int, default=64)
+
+    p.add_argument(
+        "--no_save_final_model",
+        action="store_true",
+        help="Skip training/saving the final deployable model after cross-validation.",
+    )
+    p.add_argument(
+        "--final_model_dir",
+        type=str,
+        default="",
+        help="Directory for the saved deployable model (default: <out_dir>/final_model).",
+    )
 
     args = p.parse_args()
 
@@ -319,6 +427,7 @@ def main() -> None:
 
     rows = []
     after_sum = {"NonBCG": 0, "BCG": 0}
+    best_hps: List[Dict] = []
 
     for fold, (train_idx, test_idx) in enumerate(outer.split(np.zeros_like(y_all), y_all, groups=g_all), start=1):
         fold_dir = cfg.out_dir / f"fold_{fold:02d}"
@@ -347,6 +456,7 @@ def main() -> None:
 
         # Nested hyperparameter selection on outer-train only
         best_hp = select_hyperparams_nested(args.model, cfg, X_train_outer, y_train_outer, g_train_outer, fold_seed)
+        best_hps.append(best_hp)
 
         # Patient-wise calibration split within outer-train
         gss = GroupShuffleSplit(n_splits=1, test_size=cfg.calib_frac, random_state=fold_seed)
@@ -540,4 +650,16 @@ def main() -> None:
             f.write(f"{c}: {stds[c]:.6f}\n")
 
     logging.info("Saved summary TSV and stats TXT into: %s", cfg.out_dir)
+
+    # Train and save a single deployable model on ALL data for later inference.
+    if not args.no_save_final_model:
+        modal_hp = select_modal_hyperparams(best_hps)
+        logging.info("Training final deployable model on ALL data with modal HP: %s", modal_hp)
+        final_model, final_calibrator = train_final_model(
+            args.model, cfg, X_all, y_all, g_all, modal_hp, seed=cfg.seed + 777
+        )
+        final_dir = Path(args.final_model_dir) if args.final_model_dir else (cfg.out_dir / "final_model")
+        save_artifacts(final_dir, final_model, final_calibrator, cfg, args.model)
+        logging.info("Saved deployable model + calibrator + inference config into: %s", final_dir)
+
     logging.info("Done.")
