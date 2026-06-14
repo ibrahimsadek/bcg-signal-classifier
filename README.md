@@ -328,3 +328,46 @@ Integrated Gradients adds extra gradient passes; disable XAI for faster runs:
 ```bash
 python main.py --model transformer --disable_xai
 ```
+
+---
+
+## 9) Baselines and ablation experiments
+
+To quantify the benefit of the pipeline's design choices, `--ablation` runs a
+**flat (non-nested) cross-validation with fixed hyperparameters** while toggling
+one design choice at a time. Each run appends a summary row (mean ± std per
+metric over folds) to `ablation_output/ablation_results.tsv`. The validated
+nested pipeline is untouched, so the main reported results are unaffected.
+
+Toggles:
+
+| Flag | Choices | Contrast |
+|---|---|---|
+| `--split_mode` | `patient` (default), `record` | leakage-safe vs. leaked (random) splitting |
+| `--aug_mode` | `capped` (default), `plain`, `none` | capped vs. plain oversampling vs. no augmentation |
+| `--calibration` | `temperature` (default), `platt`, `none` | calibrated vs. uncalibrated probabilities |
+
+Each run reports `acc`, `f1`, `auc`, `brier`, `ece`, `nll` — both uncalibrated
+(`uncal_*`) and, when calibration is enabled, calibrated (`cal_*`).
+
+Example comparison set (run on your data):
+```bash
+# A) Leakage-safe + capped aug + calibration (matches the proposed design)
+python main.py --ablation --split_mode patient --aug_mode capped --calibration temperature --label proposed
+
+# B) Leaked (record-wise) splitting — shows inflated, optimistic metrics
+python main.py --ablation --split_mode record  --aug_mode capped --calibration temperature --label leaked_split
+
+# C) No augmentation
+python main.py --ablation --split_mode patient --aug_mode none   --calibration temperature --label no_aug
+
+# D) Plain (uncapped) oversampling
+python main.py --ablation --split_mode patient --aug_mode plain  --calibration temperature --label plain_oversample
+
+# E) Uncalibrated (also reported as uncal_* in every run)
+python main.py --ablation --split_mode patient --aug_mode capped --calibration none        --label uncalibrated
+```
+
+Other knobs: `--model` (`cnn`/`transformer`), `--splits` (folds, default `5`),
+`--epochs`, `--lr`, `--dropout`, `--max_oversample_factor`, `--noise_std`,
+`--out_dir`. See `python main.py --ablation --help`.

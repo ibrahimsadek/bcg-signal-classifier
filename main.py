@@ -2,12 +2,14 @@
 # -*- coding: utf-8 -*-
 """Entry point for BCG signal classification pipeline.
 
-Two modes:
+Modes:
   Train + evaluate (default):
       python main.py --model transformer
   Apply a pretrained model to a new recording:
       python main.py --predict --model_dir ./cv_output_nested/final_model \
                      --input new_patient.csv --annotations new_patient_ann.txt
+  Run a baseline/ablation configuration:
+      python main.py --ablation --split_mode record --aug_mode none --calibration none
 """
 
 import os
@@ -56,6 +58,10 @@ if __name__ == "__main__":
         from bcg_signal_classifier.inference import predict_main  # noqa: E402
 
         predict_main()
+    elif "--ablation" in sys.argv:
+        from bcg_signal_classifier.ablation import ablation_main  # noqa: E402
+
+        ablation_main()
     else:
         ready = ensure_data_dirs()
         if not ready:
