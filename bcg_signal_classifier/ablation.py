@@ -28,7 +28,14 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
-from sklearn.metrics import accuracy_score, f1_score, log_loss, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    f1_score,
+    log_loss,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit, StratifiedKFold, train_test_split
 
 from bcg_signal_classifier.augmentation import augment_capped_option_b
@@ -123,20 +130,35 @@ def apply_augmentation(
 
 
 def _binary_metrics(y_true: np.ndarray, p_pos: np.ndarray, pred: np.ndarray) -> Dict[str, float]:
-    """Compute accuracy, F1, AUC, Brier, ECE, and NLL for a binary problem."""
+    """Compute imbalance-aware binary metrics.
+
+    Includes balanced accuracy, macro-F1, and per-class recall (NonBCG/BCG) so
+    that minority-class behaviour is visible (plain accuracy and BCG-F1 can be
+    inflated by majority-class dominance under class imbalance).
+    """
     p_pos = np.clip(p_pos, 1e-7, 1.0 - 1e-7)
     try:
         auc = float(roc_auc_score(y_true, p_pos))
     except ValueError:
         auc = float("nan")
+    rec_per_class = recall_score(y_true, pred, labels=[0, 1], average=None, zero_division=0)
     return {
         "acc": float(accuracy_score(y_true, pred)),
+        "bal_acc": float(balanced_accuracy_score(y_true, pred)),
         "f1": float(f1_score(y_true, pred, zero_division=0)),
+        "macro_f1": float(f1_score(y_true, pred, average="macro", zero_division=0)),
         "auc": auc,
+        "rec_nonbcg": float(rec_per_class[0]),
+        "rec_bcg": float(rec_per_class[1]),
         "brier": float(brier_score_binary(y_true, p_pos)),
         "ece": float(expected_calibration_error_binary(y_true, p_pos)),
         "nll": float(log_loss(y_true, p_pos, labels=[0, 1])),
     }
+
+
+# Canonical metric order used for the results TSV (keeps columns aligned across
+# runs regardless of whether calibration is enabled).
+METRIC_NAMES = ["acc", "bal_acc", "f1", "macro_f1", "auc", "rec_nonbcg", "rec_bcg", "brier", "ece", "nll"]
 
 
 def _make_calibration_split(
@@ -292,17 +314,36 @@ def run_ablation(args: argparse.Namespace) -> Dict[str, float]:
 
 
 def _append_summary(path: Path, label: str, args, keys, means, stds) -> None:
-    """Append a labeled result row (mean +/- std per metric) to a TSV file."""
-    header = ["label", "model", "split_mode", "aug_mode", "calibration", "splits"] + [
-        f"{k}_mean" for k in keys
-    ] + [f"{k}_std" for k in keys]
+    """Append a labeled result row to a TSV using a fixed, aligned schema.
+
+    The column set is always the full canonical schema (uncal_* then cal_* for
+    every metric in :data:`METRIC_NAMES`, means then stds). Metrics not computed
+    for this run (e.g. cal_* when calibration is off) are written empty so rows
+    never misalign across runs.
+    """
+    columns = ["label", "model", "split_mode", "aug_mode", "calibration", "splits"]
+    metric_cols: List[str] = []
+    for stat in ("mean", "std"):
+        for prefix in ("uncal", "cal"):
+            for m in METRIC_NAMES:
+                metric_cols.append(f"{prefix}_{m}_{stat}")
+    columns += metric_cols
+
+    def cell(stat: str, prefix: str, m: str) -> str:
+        key = f"{prefix}_{m}"
+        src = means if stat == "mean" else stds
+        return f"{src[key]:.6f}" if key in src else ""
+
     write_header = not path.exists()
     with open(path, "a", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
         if write_header:
-            w.writerow(header)
+            w.writerow(columns)
         row = [label, args.model, args.split_mode, args.aug_mode, args.calibration, args.splits]
-        row += [f"{means[k]:.6f}" for k in keys] + [f"{stds[k]:.6f}" for k in keys]
+        for stat in ("mean", "std"):
+            for prefix in ("uncal", "cal"):
+                for m in METRIC_NAMES:
+                    row.append(cell(stat, prefix, m))
         w.writerow(row)
 
 
