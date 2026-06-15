@@ -1,5 +1,5 @@
 # Transformer-Based Ballistocardiogram Signal Classification with Explainable AI
-**BCG vs Non-BCG** classification pipeline with **nested patient-wise cross-validation**, **train-only capped augmentation**, **probability calibration**, and **Integrated Gradients** explanations.
+**BCG vs Non-BCG** classification pipeline with **nested patient-wise cross-validation**
 
 Main entry point: `main.py`
 
@@ -13,14 +13,29 @@ bcg-signal-classifier/
 ├─ bcg_signal_classifier/         # Python package
 │  ├─ __init__.py
 │  ├─ config.py                   # Configuration dataclass
+│  ├─ dataset.py                  # Data loading
 │  ├─ preprocessing.py            # Signal filtering & preprocessing
 │  ├─ augmentation.py             # Data augmentation
 │  ├─ models.py                   # CNN & Transformer models
 │  ├─ calibration.py              # Probability calibration
 │  ├─ xai.py                      # Integrated Gradients XAI
 │  ├─ visualization.py            # Plotting utilities
-│  ├─ dataset.py                  # Data loading
-│  └─ pipeline.py                 # Main pipeline orchestration
+│  ├─ pipeline.py                 # Main pipeline orchestration
+│  ├─ persistence.py              # Save/load trained model artifacts
+│  ├─ inference.py                # Apply saved model to new recordings
+│  └─ ablation.py                 # Baseline/ablation experiments
+├─ tests/                         # Unit tests
+│  ├─ __init__.py
+│  ├─ test_augmentation.py
+│  ├─ test_calibration.py
+│  ├─ test_models.py
+│  ├─ test_persistence.py
+│  └─ test_preprocessing.py
+├─ .github/workflows/ci.yml      # CI: flake8 + pytest
+├─ requirements.txt               # Dependencies
+├─ CHANGELOG.md                   # Release notes
+├─ LICENSE                        # MIT License
+├─ README.md
 ├─ data/                          # Patient CSV files (not in repo)
 │  ├─ 0001.csv
 │  ├─ 0002.csv
@@ -38,16 +53,16 @@ Required columns:
 
 Example:
 ```csv
-epoch,raw_data_sleepMat,PulseOximeter_results
-1473817327008,5502,115
-1473817327028,5481,115
+epoch,raw_data_sleepMat
+1473817327008,0.0023
+1473817327028,0.0031
 ```
 
 ### 1.2 `annotations\patient__<PID>__annotations.txt` format
-The script uses `pandas.read_csv(sep=None, engine="python")`, so the file can be TSV or CSV but must contain:
+The script uses `pandas.read_csv(sep=None, engine='python')` so both TSV and CSV work.
 
 - `chunk_id`
-- `categories` (labels: `BCG`, `NonBCG`, `Non-BCG`, `Non_BCG` ; case-insensitive)
+- `categories` (labels: `BCG` or `NonBCG`)
 - `start_time` (ms)
 - `end_time` (ms)
 
@@ -82,20 +97,19 @@ pip install -r requirements.txt
 
 ### Verify TensorFlow backend
 ```bat
-python -c "import tensorflow as tf; print('TF', tf.__version__); print('GPUs', tf.config.list_physical_devices('GPU'))"
+python -c "import tensorflow as tf; print('TF', tf.__version__)"
 ```
 
-If you use DirectML, you should see GPU devices listed as `DML`.
+If you use DirectML on Windows, `tensorflow-directml-plugin` is included in `requirements.txt`.
 
-> If you ever see NumPy 2.x incompatibility errors with TF 2.10, ensure `numpy<2` is installed (pinned in `requirements.txt`).
+> If you ever see NumPy 2.x incompatibility errors with TF 2.10, ensure `numpy<2` is installed (already pinned in requirements).
 
 ---
 
 ## 3) How to train models
 
 Training runs **nested patient-wise cross-validation** for unbiased evaluation
-and, when finished, fits **one deployable model on all data** and saves it for
-later inference (see Section 4).
+and saves a deployable model for later inference (see Section 4).
 
 **Step 1 — place your data.** Put patient recordings in `data/` and matching
 annotations in `annotations/` (formats in Section 1). Running `main.py` creates
@@ -118,7 +132,7 @@ Custom output directory:
 python main.py --model transformer --out_dir ./cv_output_nested
 ```
 
-Faster smoke test (smaller grid, fewer epochs, no explainability):
+Faster smoke test (smaller grid, fewer epochs):
 ```bash
 python main.py --model cnn --inner_splits 3 --inner_epochs 6 --epochs 12 --hp_max_trials 6 --disable_xai
 ```
@@ -128,29 +142,28 @@ See all parameters:
 python main.py --help
 ```
 
-**Step 3 — collect results.** Cross-validation metrics, plots, and per-fold
+**Step 3 — collect results.** Cross-validation metrics and fold-wise
 reports are written to `--out_dir` (Section 6). The trained deployable model is
 saved to `--out_dir/final_model/` unless you pass `--no_save_final_model`.
 
 > Nested CV is intentionally thorough and can be slow. Use the smoke-test command
-> above while validating your data, then run the full configuration.
+> above while validating your data layout.
 
 ---
 
 ## 4) How to apply pretrained models
 
-After training, a ready-to-use model is stored in `final_model/` containing:
+After training, the `final_model/` directory contains:
 
-- `model.keras` — the trained network (logits output),
-- `calibrator.json` — the fitted probability calibrator (temperature/Platt/none),
+- `model.keras` — the trained network (logits output)
+- `calibrator.json` — the fitted probability calibrator (temperature/Platt/none)
 - `inference_config.json` — the exact preprocessing settings and label map.
 
 Run inference on a **new recording** with `--predict`. Preprocessing
-(filtering, z-scoring, resampling) is reproduced automatically from
-`inference_config.json`, so you only provide the raw CSV.
+(filtering, z-score, resampling) is reproduced exactly from `inference_config.json`.
 
 **Option A — classify annotated intervals** (same unit as training; `categories`
-optional — if present, accuracy is reported):
+optional — if present, true labels are included in the output for comparison):
 ```bash
 python main.py --predict \
   --model_dir ./cv_output_nested/final_model \
@@ -173,12 +186,12 @@ The output CSV has one row per segment:
 | Column | Meaning |
 |---|---|
 | `chunk_id` | Interval id (annotation mode) or window index |
-| `start_time`, `end_time` | Segment bounds (ms epoch) |
+| `start_time`, `end_time` | Segment boundaries (ms) |
 | `pred_index` | Predicted class index (`0`=NonBCG, `1`=BCG) |
 | `pred_label` | Human-readable predicted label |
 | `prob_BCG` | **Calibrated** probability of the BCG class |
 | `prob_BCG_uncal` | Uncalibrated (softmax) probability of the BCG class |
-| `true_label`, `correct` | Only if `categories` were supplied |
+| `true_label` | Ground truth (if annotations provided) |
 
 You can also call inference directly: `python -m bcg_signal_classifier.inference --model_dir ... --input ...`.
 
@@ -195,7 +208,7 @@ Defaults are defined in the script `Config`:
 - Fixed resample length: `target_len = 50`
 
 ### 5.2 Chunk extraction (uses **all** annotated intervals)
-For each annotation interval `[start_time, end_time]`:
+For each annotation interval `[start_time, end_time)`:
 1. Find samples in the patient CSV where `epoch` lies within the interval
 2. Extract the filtered BCG segment
 3. Z-score normalize the segment
@@ -217,15 +230,15 @@ The script asserts no patient overlap between the relevant splits.
 
 ### 5.4 Hyperparameter selection (inner loop)
 Grid search over:
-- learning rate candidates: `--lrs` (default `1e-4,3e-4`)
-- dropout candidates: `--dropouts` (default `0.1,0.2`)
-- capped oversampling factor: `--max_oversample_factors` (default `2.0,3.0`)
-- augmentation noise std: `--noise_stds` (default `0.03,0.05`)
+- learning rate candidates: `--lrs` (default `1e-4, 5e-4`)
+- dropout candidates: `--dropouts` (default `0.1, 0.3`)
+- capped oversampling factor: `--max_oversample_factors` (default `2.0, 3.0`)
+- augmentation noise std: `--noise_stds` (default `0.03, 0.06`)
 
 The grid is truncated to `--hp_max_trials` (default `12`).
 Selection criterion: best mean inner-fold **F1**.
 
-### 5.5 Augmentation (Option B: capped, train-only)
+### 5.5 Augmentation (Option B: capped oversampling)
 Augmentation is applied **only** to the training subset:
 - In inner-CV: inner-train only
 - In outer-CV: train-fit only (never calibration or test)
@@ -266,13 +279,14 @@ Per fold:
 - `counts_after_overall_<model>.png`
 - `cv_summary_nested_<model>.tsv`
 - `cv_summary_nested_<model>_stats.txt`
-- `fold_01/`, `fold_02/`, ... per-fold artifacts:
+- `fold_01/` ... `fold_10/`
   - `reliability_uncal.png`, `reliability_cal.png`
   - `xai_ig/` (if enabled)
   - fold report files (metrics + patient split lists)
-- `final_model/` — the deployable model for inference (Section 4), unless
-  `--no_save_final_model` is set:
-  - `model.keras`, `calibrator.json`, `inference_config.json`
+- `final_model/` — the deployable model for inference (Section 4)
+  - `model.keras`
+  - `calibrator.json`
+  - `inference_config.json`
 
 ---
 
@@ -288,10 +302,10 @@ Per fold:
 | `--epochs` | `20` |
 | `--inner_epochs` | `8` |
 | `--batch_size` | `128` |
-| `--lrs` | `1e-4,3e-4` |
-| `--dropouts` | `0.1,0.2` |
-| `--max_oversample_factors` | `2.0,3.0` |
-| `--noise_stds` | `0.03,0.05` |
+| `--lrs` | `1e-4, 5e-4` |
+| `--dropouts` | `0.1, 0.3` |
+| `--max_oversample_factors` | `2.0, 3.0` |
+| `--noise_stds` | `0.03, 0.06` |
 | `--hp_max_trials` | `12` |
 | `--calibration` | `temperature` (`temperature`, `platt`, `none`) |
 | `--calib_frac` | `0.2` |
@@ -303,7 +317,7 @@ Per fold:
 | `--no_save_final_model` | (flag) skip saving the deployable model |
 | `--final_model_dir` | `<out_dir>/final_model` |
 
-**Inference flags (`--predict` mode, see Section 4):**
+**Inference flags (`--predict` mode):**
 
 | Flag | Default | Meaning |
 |---|---:|---|
@@ -333,29 +347,29 @@ python main.py --model transformer --disable_xai
 
 ## 9) Baselines and ablation experiments
 
-To quantify the benefit of the pipeline's design choices, `--ablation` runs a
+To quantify the benefit of the pipeline's design choices, we provide a
 **flat (non-nested) cross-validation with fixed hyperparameters** while toggling
-one design choice at a time. Each run appends a summary row (mean ± std per
+one design choice at a time. Each run appends a summary row (mean +/- std per
 metric over folds) to `ablation_output/ablation_results.tsv`. The validated
-nested pipeline is untouched, so the main reported results are unaffected.
+nested pipeline is untouched; ablations use the separate `--ablation` mode.
 
 Toggles:
 
 | Flag | Choices | Contrast |
 |---|---|---|
-| `--split_mode` | `patient` (default), `record` | leakage-safe vs. leaked (random) splitting |
-| `--aug_mode` | `capped` (default), `plain`, `none` | capped vs. plain oversampling vs. no augmentation |
-| `--calibration` | `temperature` (default), `platt`, `none` | calibrated vs. uncalibrated probabilities |
+| `--split_mode` | `patient` (default), `record` | Leakage-safe vs leaked |
+| `--aug_mode` | `capped` (default), `plain`, `none` | Augmentation strategy |
+| `--calibration` | `temperature` (default), `platt`, `none` | Calibration method |
 
-Each run reports `acc`, `f1`, `auc`, `brier`, `ece`, `nll` — both uncalibrated
-(`uncal_*`) and, when calibration is enabled, calibrated (`cal_*`).
+Each run reports `acc`, `bal_acc`, `macro_f1`, `auc`, `rec_nonbcg`, `rec_bcg`,
+`brier`, `ece`, `nll` — both uncalibrated (`uncal_*`) and calibrated (`cal_*`).
 
 Example comparison set (run on your data):
 ```bash
 # A) Leakage-safe + capped aug + calibration (matches the proposed design)
 python main.py --ablation --split_mode patient --aug_mode capped --calibration temperature --label proposed
 
-# B) Leaked (record-wise) splitting — shows inflated, optimistic metrics
+# B) Leaked (record-wise) splitting — shows inflated metrics
 python main.py --ablation --split_mode record  --aug_mode capped --calibration temperature --label leaked_split
 
 # C) No augmentation
@@ -368,6 +382,5 @@ python main.py --ablation --split_mode patient --aug_mode plain  --calibration t
 python main.py --ablation --split_mode patient --aug_mode capped --calibration none        --label uncalibrated
 ```
 
-Other knobs: `--model` (`cnn`/`transformer`), `--splits` (folds, default `5`),
-`--epochs`, `--lr`, `--dropout`, `--max_oversample_factor`, `--noise_std`,
+Other knobs: `--model` (`cnn`/`transformer`), `--splits`, `--epochs`,
 `--out_dir`. See `python main.py --ablation --help`.
