@@ -21,7 +21,8 @@ seeds, so that the only difference between rows is the architecture.
     1D CNN              the manuscript's existing baseline
     ResNet-1D           deeper convolutional control: isolates whether attention
                         adds anything beyond depth
-    BiLSTM              recurrent sequence model; the family Geng et al. (2024)
+    BiLSTM              recurrent sequence model
+    the family Geng et al. (2024)
                         apply to BCG J-wave recognition
     Conv-Transformer    the proposed model, re-run under the same budget
 
@@ -65,8 +66,6 @@ from __future__ import annotations
 import argparse
 import contextlib
 import os
-import re
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -185,7 +184,9 @@ def load_all(data_dir: Path, ann_dir: Path, verbose=False):
             print(f"    [skip] no annotation file for {pid}")
             continue
         X, y = load_patient(sp, cands[0], verbose)
-        Xs.append(X); ys.append(y); gs.append(np.full(len(y), pid))
+        Xs.append(X)
+        ys.append(y)
+        gs.append(np.full(len(y), pid))
     if not Xs:
         raise SystemExit("No patients loaded.")
     return np.concatenate(Xs), np.concatenate(ys), np.concatenate(gs)
@@ -204,9 +205,11 @@ def capped_augment(X, y, k_cap, noise_std, rng):
         idx = np.where(y == c)[0]
         if len(idx) >= T:
             sel = rng.choice(idx, size=T, replace=False)
-            out_X.append(X[sel]); out_y.append(np.full(T, c))
+            out_X.append(X[sel])
+            out_y.append(np.full(T, c))
             continue
-        out_X.append(X[idx]); out_y.append(np.full(len(idx), c))
+        out_X.append(X[idx])
+        out_y.append(np.full(len(idx), c))
         need = T - len(idx)
         src = rng.choice(idx, size=need, replace=True)
         syn = X[src].copy()
@@ -216,8 +219,10 @@ def capped_augment(X, y, k_cap, noise_std, rng):
             syn[mode == 1] *= rng.uniform(0.9, 1.1, size=(int((mode == 1).sum()), 1)).astype(np.float32)
         for j in np.where(mode == 2)[0]:
             syn[j] = np.roll(syn[j], int(rng.integers(-5, 6)))
-        out_X.append(syn); out_y.append(np.full(need, c))
-    Xa = np.concatenate(out_X); ya = np.concatenate(out_y)
+        out_X.append(syn)
+        out_y.append(np.full(need, c))
+    Xa = np.concatenate(out_X)
+    ya = np.concatenate(out_y)
     p = rng.permutation(len(ya))
     return Xa[p], ya[p]
 
@@ -245,7 +250,8 @@ def build(name, drop):
         for f in (64, 128, 128):
             sc = L.Conv1D(f, 1, padding="same")(x)
             h = L.Conv1D(f, 5, padding="same")(x)
-            h = L.BatchNormalization()(h); h = L.Activation("relu")(h)
+            h = L.BatchNormalization()(h)
+            h = L.Activation("relu")(h)
             h = L.Conv1D(f, 3, padding="same")(h)
             h = L.BatchNormalization()(h)
             x = L.Activation("relu")(L.Add()([sc, h]))
@@ -380,6 +386,7 @@ def main() -> None:
             tf.keras.utils.set_random_seed(SEED + fi)
             rng = np.random.default_rng(SEED + fi)
             Xtr, ytr = capped_augment(X[tr], y[tr], HP["k_cap"], HP["noise_std"], rng)
+
             def _train_and_eval(device=None):
                 ctx = tf.device(device) if device else contextlib.nullcontext()
                 with ctx:
@@ -417,7 +424,6 @@ def main() -> None:
 
     # paired tests vs the Transformer, on matched folds
     from scipy import stats as st
-    lines, A = [], None
     L = []
     A = L.append
     A("=" * 78)
@@ -437,10 +443,10 @@ def main() -> None:
     for m in args.models:
         d = df[df["model"] == m]
         A(f"{m:<16}" + "".join(
-            f"{d[k].mean():>9.3f}" if k == 'acc' else f"{d[k].mean():>{10 if k in ('bal_acc','macro_f1') else 9}.3f}"
+            f"{d[k].mean():>9.3f}" if k == 'acc' else f"{d[k].mean():>{10 if k in ('bal_acc', 'macro_f1') else 9}.3f}"
             for k in metrics))
         A(f"{'  +/- SD':<16}" + "".join(
-            f"{d[k].std():>9.3f}" if k == 'acc' else f"{d[k].std():>{10 if k in ('bal_acc','macro_f1') else 9}.3f}"
+            f"{d[k].std():>9.3f}" if k == 'acc' else f"{d[k].std():>{10 if k in ('bal_acc', 'macro_f1') else 9}.3f}"
             for k in metrics))
     A("")
     if "transformer" in args.models:
@@ -460,7 +466,7 @@ def main() -> None:
                     p = st.wilcoxon(a[ok], b[ok]).pvalue
                 except ValueError:
                     p = np.nan
-                cells += f"{np.mean(a[ok]-b[ok]):>{10 if k!='macro_f1' else 11}.3f}{p:>10.4f}"
+                cells += f"{np.mean(a[ok]-b[ok]):>{10 if k != 'macro_f1' else 11}.3f}{p:>10.4f}"
             A(f"{m:<16}{cells}")
         A("")
         A("  Negative delta = the comparator is WORSE than the Transformer.")
