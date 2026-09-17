@@ -1,0 +1,43 @@
+==============================================================================
+CALIBRATED vs UNCALIBRATED QUALITY GATE -- EXTERNAL COHORT
+(Reviewer 1, comment 3)
+==============================================================================
+
+  1-second windows analysed        : 1,736,619
+  Subjects                         : 46
+  Decision threshold               : 0.5
+
+  Windows with IDENTICAL decision  : 1,736,619 (100.000000%)
+  Windows with DIFFERENT decision  : 0
+
+  Accept rate, calibrated          : 0.718894
+  Accept rate, uncalibrated        : 0.718894
+  Difference                       : +0.000000
+
+  Mean |probability shift|         : 0.021452
+  Max  |probability shift|         : 0.037007
+
+INTERPRETATION
+------------------------------------------------------------------------------
+  Decision agreement is EXACTLY 100%.
+
+  This is the expected result, not a coincidence. Temperature scaling
+  divides logits by a single T > 0 before the softmax. For binary
+  classification at a fixed threshold this is strictly monotonic, so it
+  cannot move any window across the decision boundary. The calibrated and
+  uncalibrated gates emit the same accept/reject mask, therefore identical
+  block coverage and identical downstream HR error -- there is no MAE,
+  coverage or F1 difference to report, by construction.
+
+  Calibration changes CONFIDENCE (Brier / ECE / NLL), not DECISIONS. The
+  manuscript reports those internal calibration effects already, and they
+  were negligible on average (dECE = +0.0026).
+
+  SUGGESTED REBUTTAL WORDING:
+    'We verified this directly on the external cohort: calibrated and
+     uncalibrated gates agreed on 100% of N 1-second windows, because
+     temperature scaling is a monotonic transform of the logits and so
+     cannot alter the argmax at a fixed threshold. Downstream coverage and
+     HR error are consequently identical. We have added a sentence to the
+     external-validation section making this explicit.'
+==============================================================================

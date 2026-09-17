@@ -1,0 +1,39 @@
+==============================================================================
+EXAMPLE ACCEPTED / REJECTED 30-SECOND WINDOWS (Reviewer 1, comment 2)
+==============================================================================
+
+SELECTION RULE (state this in the figure caption -- it is what makes the
+figure evidence rather than illustration):
+
+  Blocks were stratified by the gate's block-level BCG fraction into
+    - clean       [0.95, 1.01)   Accepted - high BCG fraction
+    - borderline  [0.45, 0.60)   Borderline - near the beta=0.50 boundary
+    - degraded    [0.00, 0.20)   Rejected - low BCG fraction
+  and 3 block(s) per stratum were drawn UNIFORMLY AT RANDOM
+  with a fixed seed (42). No block was inspected before selection.
+
+SELECTED SEGMENTS
+------------------------------------------------------------------------------
+Stratum     Subject                       block_start (raw)   BCGfrac   HR_BCG   HR_ECG
+clean       Sub32_aligned_data_ecg                117259960      1.00       60       73
+clean       Sub08_aligned_data_ecg                100276168      0.97       60       60
+clean       Sub34_aligned_data_ecg                 92788888      1.00       79       80
+borderline  Sub04_aligned_data_ecg                104913056      0.50       53       75
+borderline  Sub31_aligned_data_ecg                 81159616      0.57       77       76
+borderline  Sub39_aligned_data_ecg                 85211448      0.47       --       58
+degraded    Sub32_aligned_data_ecg                 87139960      0.13       --       60
+degraded    Sub41_aligned_data_ecg                111675976      0.00       --       --
+degraded    Sub35_aligned_data_ecg                115198128      0.00       --       --
+
+SCOPE -- BE PRECISE ABOUT THIS IN THE RESPONSE LETTER
+------------------------------------------------------------------------------
+  This figure is a qualitative audit of gate behaviour on the external cohort.
+  It does NOT constitute external validation against ground truth, because no
+  independent quality annotation exists for this dataset -- which the
+  manuscript already lists as an outstanding limitation.
+
+  To answer the reviewer with evidence rather than illustration, run
+  --export_blind, have a second reader score the unlabelled segments, and
+  report Cohen's kappa against the gate. That converts this from 'here are
+  some pictures' into a measured agreement statistic.
+==============================================================================

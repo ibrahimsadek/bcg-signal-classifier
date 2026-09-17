@@ -1,0 +1,36 @@
+==============================================================================
+HALF-RATE DETECTION DIAGNOSTIC
+Tests the Discussion's hypothesis that the negative HR bias arises from
+the J-peak detector selecting every other cardiac cycle during tachycardia.
+==============================================================================
+
+Group     Blocks   %half  %normal  %double  %other  MeanRatio     Bias  Bias(excl half)
+---------------------------------------------------------------------------------------
+All        53955    7.56    50.35     0.03   42.06      0.874   -11.57            -8.52
+Sinus      32576    4.88    60.21     0.03   34.88      0.903    -8.70            -6.68
+AF         21379   11.64    35.34     0.03   52.99      0.830   -15.94           -11.54
+
+HALF-RATE PREVALENCE BY REFERENCE HR (the tachycardia prediction)
+------------------------------------------------------------------------------
+HR band        Blocks   % half-rate   Mean signed err
+<60             12972          0.00              3.19
+60-80           26977          0.50             -8.03
+80-100          11345         16.80            -26.49
+100-120          1790         76.03            -47.57
+>120              871         77.50            -72.59
+
+VERDICT
+------------------------------------------------------------------------------
+  Blocks in the half-rate band (0.40-0.60): 7.56%
+  Share of total signed bias contributed by those blocks: 31.9%
+  Mean signed bias: -11.57 bpm  ->  excluding half-rate blocks: -8.52 bpm
+
+  => PARTIALLY SUPPORTED. Half-rate blocks are present and contribute,
+     but a substantial bias remains after excluding them. The Discussion
+     should say half-rate is ONE contributor, not THE mechanism.
+
+  NOTE: this is a block-level HR-ratio test, which is the practical proxy for
+  the interval-ratio histogram the manuscript proposes. It shares the
+  hypothesis's logic but aggregates within 30-s blocks, so a block mixing
+  correct and halved beats lands between the modes rather than at 0.5.
+==============================================================================

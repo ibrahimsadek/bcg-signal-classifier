@@ -384,3 +384,32 @@ python main.py --ablation --split_mode patient --aug_mode capped --calibration n
 
 Other knobs: `--model` (`cnn`/`transformer`), `--splits`, `--epochs`,
 `--out_dir`. See `python main.py --ablation --help`.
+
+---
+
+## 10) Downstream evaluation of the quality gate
+
+[#10-downstream-evaluation-of-the-quality-gate](#10-downstream-evaluation-of-the-quality-gate)
+
+Sections 1-9 cover training and evaluating the classifier. A classifier that
+scores well on held-out patients is not necessarily useful to the analysis it
+feeds, so `analysis/` and `downstream/` evaluate the gate by its effect on
+heart-rate estimation on an independent public cohort (Qiu et al., 46 subjects).
+
+The headline results from that evaluation:
+
+* Applying the gate at its selected operating point **increased** heart-rate
+  error by 0.73 bpm relative to not gating at all (p = 2.6e-11; 43 of 46
+  subjects worse).
+* 99.1% of that harm came from restricting J-peak detection to gate-accepted
+  seconds *within* retained blocks, which removed 41.6% of the J-J intervals
+  available for averaging. Rejecting whole blocks contributed 0.007 bpm.
+* Applied at block granularity only, the gate was neutral at 99% coverage and
+  reduced error by 0.24 bpm at 66% coverage, beating coverage-matched random
+  selection (p < 0.0005).
+
+The practical implication is that the granularity at which a quality decision
+is *applied* should match the analysis unit of the estimator consuming it, not
+the unit at which the classifier was trained.
+
+See `analysis/README.md` for the execution order and a script index.

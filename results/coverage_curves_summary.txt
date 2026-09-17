@@ -1,0 +1,44 @@
+================================================================================
+MAE-vs-COVERAGE CURVES: does the learned gate beat model-free J-J statistics?
+================================================================================
+
+  All methods are scored on the ungated run, so every method ranks the same
+  blocks with the same HR estimates. Only the keep/drop decision differs.
+
+ Coverage    JJ-CV (lowest first)   JJ-count (most first)  Random (coverage-match
+---------------------------------------------------------------------------------
+     0.05                  11.479                  15.307                  13.934
+     0.10                  11.607                  15.328                  13.897
+     0.20                  12.231                  15.569                  13.904
+     0.30                  12.578                  15.468                  13.904
+     0.40                  12.766                  15.342                  13.908
+     0.50                  13.103                  15.076                  13.905
+     0.60                  13.344                  14.971                  13.912
+     0.66                  13.486                  14.759                  13.909
+     0.70                  13.582                  14.735                  13.903
+     0.80                  13.725                  14.458                  13.908
+     0.90                  13.847                  14.150                  13.906
+     0.95                  13.891                  14.031                  13.907
+     0.99                  13.898                  13.914                  13.907
+     1.00                  13.907                  13.907                  13.907
+
+GATE OPERATING POINTS vs THE JJ-CV CURVE AT MATCHED COVERAGE
+--------------------------------------------------------------------------------
+  blockonly0.50    coverage 0.993   gate  13.914   JJ-CV  13.900   diff +0.014   -> ON the curve (tied)
+  blockonly0.70    coverage 0.659   gate  13.668   JJ-CV  13.485   diff +0.184   -> ABOVE curve (heuristic better)
+
+VERDICT
+--------------------------------------------------------------------------------
+  => THE HEURISTIC DOMINATES THE GATE at matched coverage.
+     A model-free J-J statistic is the better selector on this cohort.
+
+NOTE ON JJ-COUNT
+--------------------------------------------------------------------------------
+  Keeping blocks with the MOST detected J-J intervals is WORSE than
+  random at 66% coverage (14.759 vs 13.909). More detectable
+  peaks indicates artefact, not signal -- the same inversion already
+  documented for RMS energy in the internal feature baselines.
+  Regularity of beat spacing predicts usability; quantity of peaks
+  actively misleads. That is a coherent physiological thread running
+  through both halves of the paper and is worth stating explicitly.
+================================================================================

@@ -1,0 +1,56 @@
+================================================================================
+COMMON-BLOCK DECOMPOSITION: block-level gating vs interval-level restriction
+Comparing 'blockonly0.50' against 'ungated'
+================================================================================
+
+BLOCK BOOKKEEPING
+--------------------------------------------------------------------------------
+  Blocks present in either arm              : 57,908
+  Scored in BOTH arms (common set)          : 53,954
+  Scored only in ungated (lost to gating)   : 396
+  Scored only in gated (gained)             : 0
+
+MAE DECOMPOSITION (per-subject means, n = 46 subjects)
+--------------------------------------------------------------------------------
+  Ungated MAE, all scored blocks            :   13.907 bpm
+  Gated   MAE, all scored blocks            :   13.914 bpm
+  TOTAL effect (patch1's number)            :   +0.007 bpm   (Wilcoxon p = 0.06)
+
+  Ungated MAE, common blocks only           :   13.914 bpm
+  Gated   MAE, common blocks only           :   13.914 bpm
+  INTERVAL-level effect                     :   +0.000 bpm   (Wilcoxon p = nan)
+
+  SELECTION effect (which blocks scored)    :   +0.007 bpm
+
+  Share of the total effect due to interval-level restriction: 0.0%
+  Subjects where gating hurts on common blocks: 0/46
+
+MECHANISM: what interval-level restriction removes (common blocks only)
+--------------------------------------------------------------------------------
+Quantity                           Ungated     Gated     Delta        %  Blocks down
+n_seconds_with_j_peak                30.00     30.00      0.00     0.0%            0
+diagnostic_valid_jj_intervals        21.17     21.17      0.00     0.0%            0
+dense_valid_jj_intervals             38.30     38.30      0.00     0.0%            0
+n_bcg_seconds                        30.00     21.65     -8.35   -27.8%       53,844
+
+  Block-level correlation, seconds lost vs error increase:
+    n/a
+
+VERDICT
+--------------------------------------------------------------------------------
+  => INTERVAL-LEVEL RESTRICTION IS NEUTRAL.
+
+     On common blocks the two arms are effectively identical, so the
+     total effect (+0.007 bpm) is essentially all SELECTION: the
+     arms differ because they score different block sets, not because
+     gating changes the estimate on a given block.
+
+     This means the gate is REJECTING BLOCKS THAT WOULD HAVE BEEN
+     ESTIMATED WELL -- it is discarding usable signal. Check the error
+     distribution of the blocks in 'scored only in ungated'.
+
+  NOTE ON beta=0.90: its apparently low MAE in patch1 is NOT gate value.
+  At 3.3% coverage the arms score entirely different block subsets, so that
+  comparison is selection, not performance. Only the common-block numbers
+  above support a like-for-like claim.
+================================================================================

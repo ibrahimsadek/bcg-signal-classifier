@@ -1,0 +1,64 @@
+================================================================================
+COMMON-BLOCK DECOMPOSITION: block-level gating vs interval-level restriction
+Comparing 'beta0.50' against 'ungated'
+================================================================================
+
+BLOCK BOOKKEEPING
+--------------------------------------------------------------------------------
+  Blocks present in either arm              : 57,908
+  Scored in BOTH arms (common set)          : 53,954
+  Scored only in ungated (lost to gating)   : 396
+  Scored only in gated (gained)             : 0
+
+MAE DECOMPOSITION (per-subject means, n = 46 subjects)
+--------------------------------------------------------------------------------
+  Ungated MAE, all scored blocks            :   13.907 bpm
+  Gated   MAE, all scored blocks            :   14.632 bpm
+  TOTAL effect (patch1's number)            :   +0.725 bpm   (Wilcoxon p = 2.6e-11)
+
+  Ungated MAE, common blocks only           :   13.914 bpm
+  Gated   MAE, common blocks only           :   14.632 bpm
+  INTERVAL-level effect                     :   +0.718 bpm   (Wilcoxon p = 3e-11)
+
+  SELECTION effect (which blocks scored)    :   +0.007 bpm
+
+  Share of the total effect due to interval-level restriction: 99.1%
+  Subjects where gating hurts on common blocks: 43/46
+
+MECHANISM: what interval-level restriction removes (common blocks only)
+--------------------------------------------------------------------------------
+Quantity                           Ungated     Gated     Delta        %  Blocks down
+n_seconds_with_j_peak                30.00     21.65     -8.35   -27.8%       53,844
+diagnostic_valid_jj_intervals        21.17     12.36     -8.81   -41.6%       53,142
+dense_valid_jj_intervals             38.30     22.99    -15.31   -40.0%       53,367
+n_bcg_seconds                        30.00     21.65     -8.35   -27.8%       53,844
+
+  Block-level correlation, seconds lost vs error increase:
+    Spearman rho = +0.068 (p = 4.7e-56, n = 53954 blocks)
+
+VERDICT
+--------------------------------------------------------------------------------
+  => INTERVAL-LEVEL RESTRICTION IS THE CULPRIT.
+
+     On blocks scored identically by both arms -- where block-level
+     gating makes no difference by construction -- the gated pipeline is
+     still 0.718 bpm worse. The harm therefore comes from
+     restricting J-peak detection to gate-accepted seconds INSIDE
+     retained blocks, not from rejecting whole blocks.
+
+     Mechanism: stripping ~28% of seconds fragments the J-J interval
+     sequence, leaving fewer and more scattered intervals to average,
+     so the block HR estimate gets noisier even though the seconds
+     removed were individually lower-quality.
+
+     ACTIONABLE: test a BLOCK-GATING-ONLY variant -- use the gate to
+     accept/reject whole blocks, but run J-peak detection over the
+     entire retained block. That keeps the quality gate's purpose while
+     removing the mechanism that hurts. If that variant beats ungated,
+     you have a positive result AND an explanation for the negative one.
+
+  NOTE ON beta=0.90: its apparently low MAE in patch1 is NOT gate value.
+  At 3.3% coverage the arms score entirely different block subsets, so that
+  comparison is selection, not performance. Only the common-block numbers
+  above support a like-for-like claim.
+================================================================================

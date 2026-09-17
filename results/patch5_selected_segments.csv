@@ -1,0 +1,10 @@
+stratum,stratum_label,patient_id,block_start,bcg_fraction,hr_bcg,hr_ecg
+clean,Accepted - high BCG fraction,Sub32_aligned_data_ecg,117259960.0,1.0,60.0,73.46938775510205
+clean,Accepted - high BCG fraction,Sub08_aligned_data_ecg,100276168.0,0.9666666666666668,60.0,60.09615384615385
+clean,Accepted - high BCG fraction,Sub34_aligned_data_ecg,92788888.0,1.0,78.94736842105263,79.9373040752351
+borderline,Borderline - near the beta=0.50 boundary,Sub04_aligned_data_ecg,104913056.0,0.5,52.63157894736842,75.47169811320755
+borderline,Borderline - near the beta=0.50 boundary,Sub31_aligned_data_ecg,81159616.0,0.5666666666666667,76.92307692307692,75.75757575757575
+borderline,Borderline - near the beta=0.50 boundary,Sub39_aligned_data_ecg,85211448.0,0.4666666666666667,,57.98319327731092
+degraded,Rejected - low BCG fraction,Sub32_aligned_data_ecg,87139960.0,0.1333333333333333,,59.71173644474949
+degraded,Rejected - low BCG fraction,Sub41_aligned_data_ecg,111675976.0,0.0,,
+degraded,Rejected - low BCG fraction,Sub35_aligned_data_ecg,115198128.0,0.0,,

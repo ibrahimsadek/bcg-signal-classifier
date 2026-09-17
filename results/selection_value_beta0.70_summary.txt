@@ -1,0 +1,52 @@
+================================================================================
+SELECTION VALUE: does the gate's CHOICE of blocks beat matched alternatives?
+Gate condition: blockonly0.70   |   scored on the ungated run
+================================================================================
+
+  All methods keep the SAME NUMBER of blocks per subject as the gate, and
+  all score those blocks with the SAME ungated HR estimates. Only the
+  keep/drop decision differs, so any MAE difference is selection quality.
+
+  Subjects                        : 46
+  Mean coverage kept              : 0.659
+  Permutations per subject        : 2,000
+
+COHORT MEANS (per-subject MAE, bpm)
+--------------------------------------------------------------------------------
+  Keep everything (no selection)  :   13.907
+  GATE selection                  :   13.668   (-0.239 vs all)
+  RANDOM, coverage-matched        :   13.910   (+0.003 vs all)
+  JJ-COUNT heuristic (no model)   :   14.636   (+0.728 vs all)
+  JJ-CV heuristic (no model)      :   13.598   (-0.310 vs all)
+
+HEAD-TO-HEAD vs THE GATE (negative = comparator is BETTER than the gate)
+--------------------------------------------------------------------------------
+  Gate - Random   :   -0.241 bpm   Wilcoxon p = 0.03314
+  Gate - JJ-count :   -0.967 bpm   Wilcoxon p = 7.841e-05
+  Gate - JJ-CV    :   +0.071 bpm   Wilcoxon p = 0.6888
+
+PERMUTATION TEST (cohort level)
+--------------------------------------------------------------------------------
+  Observed gate MAE               : 13.6684
+  Random null mean                : 13.9099
+  Random null 5th percentile      : 13.8124
+  Empirical p (random <= gate)    : 0.0000
+
+  Subjects where the gate beats its own random null (p<0.05): 15/46
+
+VERDICT
+--------------------------------------------------------------------------------
+  => THE GATE BEATS COVERAGE-MATCHED RANDOM SELECTION.
+     Empirical p = 0.0000. Its block choice carries real information;
+     the improvement is not merely sample shrinkage.
+
+     HOWEVER: a model-free heuristic matches or beats it (see head-to-head
+     above). Report both. A Conv-Transformer that ties a one-line J-J
+     statistic is a finding in itself, and a referee will run this
+     comparison mentally whether or not you provide it.
+
+  SCOPE: this tests selection quality at ONE coverage level, on ONE
+  downstream estimator. It says nothing about the classifier's agreement
+  with the human annotator, which is a separate question the internal
+  evaluation already answers.
+================================================================================

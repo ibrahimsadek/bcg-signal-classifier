@@ -1,0 +1,34 @@
+==============================================================================
+GATED vs UNGATED ABLATION -- does the quality gate improve downstream HR?
+==============================================================================
+
+Condition   Gate    beta   MeanMAE   MedMAE      SD  Coverage  PairedWin
+------------------------------------------------------------------------------
+ungated     OFF       --    13.907   11.358   9.180     0.999      54350
+beta0.30    ON      0.30    14.650   12.260   9.288     0.999      54321
+beta0.50    ON      0.50    14.632   12.277   9.295     0.992      53954
+beta0.70    ON      0.70    14.202   11.508   9.172     0.658      36038
+beta0.90    ON      0.90    12.110    9.168  10.178     0.033       1870
+
+PAIRED PER-SUBJECT COMPARISON vs UNGATED BASELINE
+------------------------------------------------------------------------------
+Condition      n     dMAE   Wilcoxon p   Cohen dz   Improved
+------------------------------------------------------------------------------
+beta0.30      46    0.742       0.0000      1.420      3/46
+beta0.50      46    0.725       0.0000      1.453      3/46
+beta0.70      46    0.295       0.0007      0.343     12/46
+beta0.90      46   -1.797       0.0118     -0.343     31/46
+
+  dMAE < 0 means the gated run has LOWER error than ungated (gate helps).
+
+INTERPRETATION GUIDE
+------------------------------------------------------------------------------
+  * At beta=0.50 the gate retains ~99% of blocks, so a near-zero dMAE there
+    is expected by construction and is NOT evidence the gate is useless.
+  * The meaningful signal is the TREND across beta: if MAE falls as beta
+    rises, the gate's ranking is informative even when the operating point
+    is permissive.
+  * If MAE is flat across the whole sweep, the honest conclusion is that the
+    gate does not measurably improve this downstream estimator on this
+    cohort -- report it plainly rather than leaving the claim implicit.
+==============================================================================
